@@ -83,7 +83,7 @@ type GPUsUsageCollector struct {
 }
 
 func NewGPUsUsageCollector() *GPUsUsageCollector {
-	labels := []string{"user"}
+	labels := []string{"user", "node"}
 	return &GPUsUsageCollector {
 		alloc: prometheus.NewDesc("slurm_gpus_alloc_user", "Allocated GPUs", labels, nil),
 		// node: prometheus.NewDesc("slurm_gpus_node", "Allocated node", labels, nil),
@@ -99,7 +99,7 @@ func (cc *GPUsUsageCollector) Describe(ch chan<- *prometheus.Desc) {
 func (cc *GPUsUsageCollector) Collect(ch chan<- prometheus.Metric) {
 	cm := ParseAllocatedGPUsUsage(GPUsUsageData())
 	for c := range cm {
-		ch <- prometheus.MustNewConstMetric(cc.alloc, prometheus.GaugeValue, cm[c].alloc, c)
+		ch <- prometheus.MustNewConstMetric(cc.alloc, prometheus.GaugeValue, cm[c].alloc, c, cm[c].node)
 		// ch <- prometheus.MustNewConstMetric(cc.node, prometheus.GaugeValue, cm[c].node, c)
 	}
 }
