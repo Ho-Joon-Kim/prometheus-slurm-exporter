@@ -25,8 +25,11 @@ import (
 	"github.com/prometheus/common/log"
 )
 
-func GPUsUsageData() []byte {
+func GPUsUsageData(node ...string) []byte {
 	cmd := exec.Command("squeue","-a","-r","-h","-o %j|%u|%R|%b")
+	if len(node) > 0 {
+		cmd = exec.Command("squeue","-a","-r","-h","-o %j|%u|%R|%b","-w",node[0])
+	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)

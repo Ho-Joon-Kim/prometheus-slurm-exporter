@@ -16,12 +16,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 package main
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
 	"io/ioutil"
 	"os/exec"
-	"strings"
 	"strconv"
+	"strings"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/log"
 )
 
 type GPUsMetrics struct {
@@ -29,10 +30,6 @@ type GPUsMetrics struct {
 	idle        float64
 	total       float64
 	utilization float64
-}
-
-func GPUsGetMetrics() *GPUsMetrics {
-	return ParseGPUsMetrics()
 }
 
 
@@ -56,8 +53,8 @@ func ParseAllocatedGPUs(input []byte) float64 {
 	return num_gpus
 }
 
-func ParseTotalGPUs() float64 {
-	var num_gpus = 0.0
+func ParseTotalGPUs() map[string]*float64 {
+	num_gpus := make(map[string]*float64)
 
 	args := []string{"-h", "-o \"%n %G\""}
 	output := string(Execute("sinfo", args))
@@ -66,10 +63,13 @@ func ParseTotalGPUs() float64 {
 			if len(line) > 0 {
 				line = strings.Trim(line, "\"")
 				descriptor := strings.Fields(line)[1]
+				node_name := strings.Fields(line)[0]
 				descriptor = strings.TrimPrefix(descriptor, "gpu:")
 				descriptor = strings.Split(descriptor, ":")[1]
+				gpu_name := strings.Split(descriptor, ":")[0]
 				node_gpus, _ :=  strconv.ParseFloat(descriptor, 64)
-				num_gpus += node_gpus
+
+				num_gpus[node_name + ":" + gpu_name] = &node_gpus
 			}
 		}
 	}
@@ -77,15 +77,27 @@ func ParseTotalGPUs() float64 {
 	return num_gpus
 }
 
-func ParseGPUsMetrics() *GPUsMetrics {
-	var gm GPUsMetrics
-	total_gpus := ParseTotalGPUs()
-	allocated_gpus := ParseAllocatedGPUs(GPUsUsageData())
-	gm.alloc = allocated_gpus
-	gm.idle = total_gpus - allocated_gpus
-	gm.total = total_gpus
-	gm.utilization = allocated_gpus / total_gpus
-	return &gm
+func ParseGPUsMetrics() map[string]*GPUsMetrics {
+	gpu_usages := make(map[string]*GPUsMetrics)
+
+	total_gpus_nodes := ParseTotalGPUs()
+
+	for node, total_gpus := range total_gpus_nodes {
+		node_name := strings.Split(node, ":")[0]
+		// gpu_name := strings.Split(node, ":")[1]
+
+		allocated_gpus := ParseAllocatedGPUs(GPUsUsageData(node_name))
+
+		if _, exists := gpu_usages[node]; !exists {
+			gpu_usages[node] = &GPUsMetrics{}
+		}
+
+		gpu_usages[node].alloc = allocated_gpus
+		gpu_usages[node].idle = *total_gpus - allocated_gpus
+		gpu_usages[node].total = *total_gpus
+		gpu_usages[node].utilization = allocated_gpus / *total_gpus
+	}
+	return gpu_usages
 }
 
 // Execute the sinfo command and return its output
@@ -112,11 +124,12 @@ func Execute(command string, arguments []string) []byte {
  */
 
 func NewGPUsCollector() *GPUsCollector {
+	labels := []string{"node", "model"}
 	return &GPUsCollector{
-		alloc: prometheus.NewDesc("slurm_gpus_alloc", "Allocated GPUs", nil, nil),
-		idle:  prometheus.NewDesc("slurm_gpus_idle", "Idle GPUs", nil, nil),
-		total: prometheus.NewDesc("slurm_gpus_total", "Total GPUs", nil, nil),
-		utilization: prometheus.NewDesc("slurm_gpus_utilization", "Total GPU utilization", nil, nil),
+		alloc: prometheus.NewDesc("slurm_gpus_alloc", "Allocated GPUs", labels, nil),
+		idle:  prometheus.NewDesc("slurm_gpus_idle", "Idle GPUs", labels, nil),
+		total: prometheus.NewDesc("slurm_gpus_total", "Total GPUs", labels, nil),
+		utilization: prometheus.NewDesc("slurm_gpus_utilization", "Total GPU utilization", labels, nil),
 	}
 }
 
@@ -135,9 +148,13 @@ func (cc *GPUsCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- cc.utilization
 }
 func (cc *GPUsCollector) Collect(ch chan<- prometheus.Metric) {
-	cm := GPUsGetMetrics()
-	ch <- prometheus.MustNewConstMetric(cc.alloc, prometheus.GaugeValue, cm.alloc)
-	ch <- prometheus.MustNewConstMetric(cc.idle, prometheus.GaugeValue, cm.idle)
-	ch <- prometheus.MustNewConstMetric(cc.total, prometheus.GaugeValue, cm.total)
-	ch <- prometheus.MustNewConstMetric(cc.utilization, prometheus.GaugeValue, cm.utilization)
+	cm := ParseGPUsMetrics()
+	for c := range cm {
+		node := strings.Split(c,":")[0]
+		gpu_model := strings.Split(c,":")[1]
+		ch <- prometheus.MustNewConstMetric(cc.alloc, prometheus.GaugeValue, cm[c].alloc, node, gpu_model)
+		ch <- prometheus.MustNewConstMetric(cc.idle, prometheus.GaugeValue, cm[c].idle, node, gpu_model)
+		ch <- prometheus.MustNewConstMetric(cc.total, prometheus.GaugeValue, cm[c].total, node, gpu_model)
+		ch <- prometheus.MustNewConstMetric(cc.utilization, prometheus.GaugeValue, cm[c].utilization, node, gpu_model)
+	}
 }
