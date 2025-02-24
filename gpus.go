@@ -59,18 +59,15 @@ func ParseTotalGPUs() map[string]*float64 {
 	args := []string{"-h", "-o \"%n %G\""}
 	output := string(Execute("sinfo", args))
 	if len(output) > 0 {
-		for _, line := range strings.Split(output, "\n") {
-			if len(line) > 0 {
-				line = strings.Trim(line, "\"")
-				node_name := strings.Split(line, " ")[0]
-				descriptor := strings.Fields(line)[1]
-				descriptor = strings.TrimPrefix(descriptor, "gpu:")
-				descriptor = strings.Split(descriptor, ":")[1]
-				gpu_name := strings.Split(descriptor, ":")[0]
-				node_gpus, _ :=  strconv.ParseFloat(descriptor, 64)
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			node_name := strings.Split(line, " ")[0]
+			descriptor := strings.Split(line, " ")[1]
+			gpu_name := strings.Split(descriptor, ":")[1]
+			descriptor = strings.Split(descriptor, ":")[2]
+			node_gpus, _ :=  strconv.ParseFloat(descriptor, 64)
 
-				num_gpus[node_name + ":" + gpu_name] = &node_gpus
-			}
+			num_gpus[node_name + ":" + gpu_name] = &node_gpus
 		}
 	}
 
