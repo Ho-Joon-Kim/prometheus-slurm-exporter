@@ -35,19 +35,21 @@ func GPUsGetMetrics() *GPUsMetrics {
 	return ParseGPUsMetrics()
 }
 
-func ParseAllocatedGPUs() float64 {
+
+
+func ParseAllocatedGPUs(input []byte) float64 {
 	var num_gpus = 0.0
 
-	args := []string{"-a", "-X", "--format=Allocgres", "--state=RUNNING", "--noheader", "--parsable2"}
-	output := string(Execute("sacct", args))
-	if len(output) > 0 {
-		for _, line := range strings.Split(output, "\n") {
-			if len(line) > 0 {
-				line = strings.Trim(line, "\"")
-				descriptor := strings.TrimPrefix(line, "gpu:")
-				job_gpus, _ := strconv.ParseFloat(descriptor, 64)
-				num_gpus += job_gpus
-			}
+	lines := strings.Split(string(input), "\n")
+	for _, line := range lines {
+		if strings.Contains(line,"|") {
+				allocStr := strings.Split(strings.Split(strings.Split(line,"|")[3],"/")[1],":")[1]
+				alloc, err := strconv.ParseFloat(allocStr, 64)
+				if err != nil {
+					log.Error("Failed to parse alloc: ", err)
+					continue
+				}
+				num_gpus += alloc
 		}
 	}
 
@@ -78,7 +80,7 @@ func ParseTotalGPUs() float64 {
 func ParseGPUsMetrics() *GPUsMetrics {
 	var gm GPUsMetrics
 	total_gpus := ParseTotalGPUs()
-	allocated_gpus := ParseAllocatedGPUs()
+	allocated_gpus := ParseAllocatedGPUs(GPUsUsageData())
 	gm.alloc = allocated_gpus
 	gm.idle = total_gpus - allocated_gpus
 	gm.total = total_gpus
