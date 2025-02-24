@@ -83,10 +83,10 @@ type GPUsUsageCollector struct {
 }
 
 func NewGPUsUsageCollector() *GPUsUsageCollector {
-	labels := []string{"user"}
+	labels := []string{"user", "node"}
 	return &GPUsUsageCollector {
 		alloc: prometheus.NewDesc("slurm_gpus_alloc_user", "Allocated GPUs", labels, nil),
-		node: prometheus.NewDesc("slurm_gpus_node", "Allocated node", labels, nil),
+		// node: prometheus.NewDesc("slurm_gpus_node", "Allocated node", labels, nil),
 	}
 }
 
