@@ -43,7 +43,6 @@ func GPUsUsageData() []byte {
 
 type GPUsUsageMetrics struct {
 	alloc       float64
-	node		string
 }
 
 func ParseAllocatedGPUsUsage(input []byte) map[string]*GPUsUsageMetrics {
@@ -53,6 +52,7 @@ func ParseAllocatedGPUsUsage(input []byte) map[string]*GPUsUsageMetrics {
 		if strings.Contains(line,"|") {
 				user := strings.Split(line,"|")[1]
 				node := strings.Split(line,"|")[2]
+				splicer := user + ":" + node
 				allocStr := strings.Split(strings.Split(strings.Split(line,"|")[3],"/")[1],":")[1]
 				alloc, err := strconv.ParseFloat(allocStr, 64)
 				if err != nil {
@@ -60,12 +60,11 @@ func ParseAllocatedGPUsUsage(input []byte) map[string]*GPUsUsageMetrics {
 					continue
 				}
 
-				if _, exists := gpu_usages[user]; !exists {
-					gpu_usages[user] = &GPUsUsageMetrics{}
+				if _, exists := gpu_usages[splicer]; !exists {
+					gpu_usages[splicer] = &GPUsUsageMetrics{}
 				}
 
-				gpu_usages[user].alloc += alloc
-				gpu_usages[user].node = node
+				gpu_usages[splicer].alloc += alloc
 		}
 	}
 	return gpu_usages
@@ -79,27 +78,25 @@ func ParseAllocatedGPUsUsage(input []byte) map[string]*GPUsUsageMetrics {
  */
 type GPUsUsageCollector struct {
 	alloc       *prometheus.Desc
-	// node       *prometheus.Desc
 }
 
 func NewGPUsUsageCollector() *GPUsUsageCollector {
 	labels := []string{"user", "node"}
 	return &GPUsUsageCollector {
 		alloc: prometheus.NewDesc("slurm_gpus_alloc_user", "Allocated GPUs", labels, nil),
-		// node: prometheus.NewDesc("slurm_gpus_node", "Allocated node", labels, nil),
 	}
 }
 
 // Send all metric descriptions
 func (cc *GPUsUsageCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- cc.alloc
-	// ch <- cc.node
 }
 
 func (cc *GPUsUsageCollector) Collect(ch chan<- prometheus.Metric) {
 	cm := ParseAllocatedGPUsUsage(GPUsUsageData())
 	for c := range cm {
-		ch <- prometheus.MustNewConstMetric(cc.alloc, prometheus.GaugeValue, cm[c].alloc, c, cm[c].node)
-		// ch <- prometheus.MustNewConstMetric(cc.node, prometheus.GaugeValue, cm[c].node, c)
+		user := strings.Split(c,":")[0]
+		node := strings.Split(c,":")[1]
+		ch <- prometheus.MustNewConstMetric(cc.alloc, prometheus.GaugeValue, cm[c].alloc, user, node)
 	}
 }
