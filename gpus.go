@@ -16,7 +16,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os/exec"
 	"strconv"
@@ -65,10 +64,7 @@ func ParseTotalGPUs() map[string]*float64 {
 			line = strings.TrimSpace(line)
 			line = strings.ReplaceAll(line, "\"", "")
 			if len(line) > 0 {
-				fmt.Printf("line: -%s-\n", line)
 				node_name := strings.Split(line, " ")[0]
-				fmt.Printf("node_name: %s\n", node_name)
-
 				descriptor := strings.Split(line, " ")[1]
 				gpu_name := strings.Split(descriptor, ":")[1]
 				descriptor = strings.Split(descriptor, ":")[2]
