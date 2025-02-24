@@ -62,6 +62,8 @@ func ParseTotalGPUs() map[string]*float64 {
 	if len(output) > 0 {
 		lines := strings.Split(string(output), "\n")
 		for _, line := range lines {
+			// trim
+			line = strings.TrimSpace(line)
 			fmt.Printf("line: -%s\n-", line)
 			node_name := strings.Split(line, " ")[0]
 			fmt.Printf("node_name: %s\n", node_name)
