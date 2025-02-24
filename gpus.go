@@ -64,16 +64,18 @@ func ParseTotalGPUs() map[string]*float64 {
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
 			line = strings.ReplaceAll(line, "\"", "")
-			fmt.Printf("line: -%s-", line)
-			node_name := strings.Split(line, " ")[0]
-			fmt.Printf("node_name: %s\n", node_name)
+			if len(line) > 0 {
+				fmt.Printf("line: -%s-\n", line)
+				node_name := strings.Split(line, " ")[0]
+				fmt.Printf("node_name: %s\n", node_name)
 
-			descriptor := strings.Split(line, " ")[1]
-			gpu_name := strings.Split(descriptor, ":")[1]
-			descriptor = strings.Split(descriptor, ":")[2]
-			node_gpus, _ :=  strconv.ParseFloat(descriptor, 64)
+				descriptor := strings.Split(line, " ")[1]
+				gpu_name := strings.Split(descriptor, ":")[1]
+				descriptor = strings.Split(descriptor, ":")[2]
+				node_gpus, _ :=  strconv.ParseFloat(descriptor, 64)
 
-			num_gpus[node_name + ":" + gpu_name] = &node_gpus
+				num_gpus[node_name + ":" + gpu_name] = &node_gpus
+			}
 		}
 	}
 
